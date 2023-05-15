@@ -1,0 +1,54 @@
+https://render.com/docs/deploy-django#update-your-app-for-render
+
+poetry add dj-database-url psycopg2-binary
+poetry add 'whitenoise[brotli]'
+
+
+Modify mysite/settings.py
+
+import os
+import dj_database_url
+
+SECRET_KEY = os.environ.get('SECRET_KEY', default='your secret key')
+
+DEBUG = 'RENDER' not in os.environ
+ALLOWED_HOSTS = []
+
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+MIDDLEWARE = [
+    # ...
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    # ...
+]    
+
+
+STATIC_URL = '/static/'
+
+if not DEBUG:    # Tell Django to copy statics to the `staticfiles` directory
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    # Turn on WhiteNoise storage backend that takes care of compressing static files
+    # and creating unique names for each version so they can safely be cached forever.
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+Create a Build Script
+build.bash
+---------------------
+#!/usr/bin/env bash
+# exit on error
+set -o errexit
+
+poetry install
+
+python manage.py collectstatic --no-input
+python manage.py migrate
+---------------------
+
+chmod a+x build.sh
+
+poetry add gunicorn
